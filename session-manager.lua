@@ -1,6 +1,10 @@
 local wezterm = require("wezterm")
 local session_manager = {}
 local os = wezterm.target_triple
+local saving_path_without_home_dir = "/.config/wezterm/.session/"
+wezterm.on("update-right-status", function(window)
+	window:set_right_status(window:active_workspace())
+end)
 
 --- Displays a notification in WezTerm.
 -- @param message string: The notification message to be displayed.
@@ -96,6 +100,7 @@ local function recreate_workspace(window, workspace_data)
 		wezterm.log_info(
 			"Restoration can only be performed in a window with a single tab and a single pane, to prevent accidental data loss."
 		)
+		window:toast_notification("wezterm", "Please close all tabs before switch to other", nil, 2500)
 		return
 	end
 
@@ -170,9 +175,11 @@ local function recreate_workspace(window, workspace_data)
 	return true
 end
 
+-- Get all filename in session
 local function get_workspace_for_input_selector()
 	local ws = {}
-	local rg = io.popen("cd ~/.config/wezterm/session/; rg --files *.json")
+	-- format ~/.config/wezterm/config/.session/
+	local rg = io.popen(string.format("cd ~%s; rg --files *.json", saving_path_without_home_dir))
 	if rg == nil then
 		table.insert(ws, { label = "Empty", id = "Empty" })
 	else
@@ -208,7 +215,7 @@ end
 --- Loads the saved json file matching the current workspace.
 function session_manager.restore_state(window)
 	local workspace_name = window:active_workspace()
-	local file_path = wezterm.home_dir .. "/.config/wezterm/session/" .. workspace_name .. ".json"
+	local file_path = wezterm.home_dir .. saving_path_without_home_dir .. workspace_name .. ".json"
 
 	local workspace_data = load_from_json_file(file_path)
 	if not workspace_data then
@@ -235,13 +242,8 @@ end
 
 --- Allows to select which workspace to load
 function session_manager.load_state(window, pane, id, label)
-	-- TODO: Implement
-	-- Placeholder for user selection logic
-	-- ...
-	-- TODO: Call the function recreate_workspace(workspace_data) to recreate the workspace
-	-- Placeholder for recreation logic...
 	local function load_state_internal(window, pane, id, label)
-		local file_path = wezterm.home_dir .. "/.config/wezterm/session/" .. id .. ".json"
+		local file_path = wezterm.home_dir .. saving_path_without_home_dir .. id .. ".json"
 
 		local workspace_data = load_from_json_file(file_path)
 		if not workspace_data then
@@ -272,7 +274,7 @@ function session_manager.save_state(window)
 	local data = retrieve_workspace_data(window)
 
 	-- Construct the file path based on the workspace name
-	local file_path = wezterm.home_dir .. "/.config/wezterm/session/" .. data.name .. ".json"
+	local file_path = wezterm.home_dir .. saving_path_without_home_dir .. data.name .. ".json"
 
 	-- Save the workspace data to a JSON file and display the appropriate notification
 	if save_to_json_file(data, file_path) then
@@ -280,6 +282,25 @@ function session_manager.save_state(window)
 	else
 		window:toast_notification("WezTerm Session Manager", "Failed to save workspace state", nil, 4000)
 	end
+end
+
+-- Using switch to create new workspace if its not exists
+function session_manager.new_state(window1, pane1)
+	local function new_state_internal(window2, pane2, line)
+		window2:perform_action(
+			wezterm.action.SwitchToWorkspace({
+				name = line,
+			}),
+			pane2
+		)
+	end
+	window1:perform_action(
+		wezterm.action.PromptInputLine({
+			description = "Create new workspace",
+			action = wezterm.action_callback(new_state_internal),
+		}),
+		pane1
+	)
 end
 
 return session_manager
