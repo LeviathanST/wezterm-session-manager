@@ -20,7 +20,7 @@ and restore different sessions or better workspaces and later restore them.
    directory:
 
    ```bash
-   git clone https://github.com/danielcopper/wezterm-session-manager.git ~/.config/wezterm/wezterm-session-manager
+   git clone https://github.com/LeviathanST/wezterm-session-manager.git ~/.config/wezterm/wezterm-session-manager
    ```
 
 2. **Configure WezTerm:** Edit your 'wezterm.lua' file to include the Session
@@ -35,7 +35,7 @@ and restore different sessions or better workspaces and later restore them.
 
    ```lua
    wezterm.on("save_session", function(window) session_manager.save_state(window) end)
-   wezterm.on("load_session", function(window) session_manager.load_state(window) end)
+   wezterm.on("load_session", function(window, pane) session_manager.load_state(window, pane) end)
    wezterm.on("restore_session", function(window) session_manager.restore_state(window) end)
    ```
 
